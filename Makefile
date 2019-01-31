@@ -33,14 +33,20 @@ scrape:
 	mv data/scrape.txt data/scrape.bkp 2>/dev/null || true
 	cd src && \
 	cat ../data/compcert-train-files.txt | $(HEAD_CMD) | \
-	xargs python3 scrape2.py $(FLAGS) -j $(NTHREADS) --output ../data/scrape.txt \
+	xargs ./scrape.py $(FLAGS) -j $(NTHREADS) --output ../data/scrape.txt \
+				        		 --prelude ../CompCert
+test-scrape:
+	mv data/scrape.txt data/scrape.bkp 2>/dev/null || true
+	cd src && \
+	cat ../data/test.txt | $(HEAD_CMD) | \
+	xargs ./scrape.py $(FLAGS) -j $(NTHREADS) --output ../data/scrape.txt \
 				        		 --prelude ../CompCert
 report:
 	($(ENV_PREFIX) ; cat data/compcert-test-files.txt | $(HEAD_CMD) | \
 	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --prelude ./CompCert $(FLAGS))
 
 train:
-	./src/proverbot9001.py train ngramclass data/scrape.txt data/pytorch-weights.tar $(FLAGS) #--hidden-size $(HIDDEN_SIZE)
+	./src/proverbot9001.py train cec data/scrape.txt data/pytorch-weights.tar $(FLAGS) #--hidden-size $(HIDDEN_SIZE)
 
 test:
 	./src/proverbot9001.py report -j $(NTHREADS) --prelude ./CompCert ./lib/Parmov.v --predictor=ngramclass
