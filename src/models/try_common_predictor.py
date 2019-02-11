@@ -52,7 +52,7 @@ class TryCommonPredictor(TokenizingPredictor[TryCommonDataset, List[float]]):
                               term_vocab_size : int, tactic_vocab_size : int) \
                               -> TryCommonDataset:
         return TryCommonDataset([TryCommonSample(tactic)
-                                 for prev_tactics, goal, tactic in
+                                 for prev_tactics, hyps, goal, tactic in
                                  data])
     def _optimize_model_to_disc(self,
                                 encoded_data : TryCommonDataset,

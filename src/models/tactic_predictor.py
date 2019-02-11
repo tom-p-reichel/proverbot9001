@@ -71,7 +71,7 @@ class TrainablePredictor(TacticPredictor, Generic[DatasetType, MetadataType, Sta
                             default=default_values.get("max-tuples", None))
         parser.add_argument("--context-filter", dest="context_filter", type=str,
                             default=default_values.get("context-filter",
-                                                       "goal-changes%no-args"))
+                                                       "default%no-args"))
         parser.add_argument("--use-substitutions", dest="use_substitutions", type=bool,
                             default=default_values.get("use_substitutions", True))
         pass

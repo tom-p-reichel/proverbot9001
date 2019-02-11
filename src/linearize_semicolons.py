@@ -289,7 +289,25 @@ def linearize_proof(coq, theorem_name, with_tactic, commands, skip_nochange_tac)
         if show_trace:
             print('    ' + tactic)
 
-        if re.match("^try", tactic.strip()):
+
+        if re.search("\|\|", tactic.strip()):
+            if context_before == context_after:
+                coq.cancel_last()
+                pass
+            else:
+                # print(tactic)
+                coq.cancel_last()
+                or_tactics = tactic.strip()[:-1].split("||")
+                correct_tactic = tactic
+                for or_tac in or_tactics:
+                    try_or_tac = "\ntry " + or_tac.strip() + '.'
+                    # print(try_or_tac)
+                    coq.run_stmt(try_or_tac)
+                    if coq.full_context == context_after:
+                        correct_tactic = '\n' + or_tac.strip() + '.'
+                        break
+                yield correct_tactic
+        elif re.match("^try", tactic.strip()):
             if context_before == context_after:
                 coq.cancel_last()
                 pass

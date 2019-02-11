@@ -104,7 +104,7 @@ class EncClassPredictor(NeuralClassifier[ECDataset, 'RNNClassifier']):
     def _encode_tokenized_data(self, data : TokenizedDataset, arg_values : Namespace,
                                tokenizer : Tokenizer, embedding : Embedding) \
         -> ECDataset:
-        return ECDataset([ECSample(goal, tactic) for prev_tactics, goal, tactic in
+        return ECDataset([ECSample(goal, tactic) for prev_tactics, hyps, goal, tactic in
                           data])
     def _data_tensors(self, encoded_data : ECDataset,
                       arg_values : Namespace) \

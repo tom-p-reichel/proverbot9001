@@ -17,6 +17,7 @@ import models.ngramsvm_classifier as ngramsvm
 import models.hyparg_predictor as hyparg
 import models.pec_predictor as pec
 import models.cec_predictor as cec
+import models.cpenc_predictor as cpenc
 from tokenizer import tokenizers
 import report
 import report2
@@ -118,6 +119,7 @@ trainable_models : Dict[str, Callable[[List[str]], None]] = {
     "hyparg" : hyparg.main,
     "pec" : pec.main,
     "cec" : cec.main,
+    "cpenc" : cpenc.main,
 }
 
 if __name__ == "__main__":
