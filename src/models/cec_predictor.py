@@ -120,7 +120,7 @@ class CECPredictor(NeuralClassifier[CECDataset, 'CEClassifier']):
                                         self.training_args.max_length)
                 for _, hypotheses, _ in in_data])
             correct_stems = [get_stem(correct) for correct in corrects]
-            prediction_distributions = self._model.run(hyp_tensor)
+            prediction_distributions = self._model.run(hyp_tensor, len(in_data))
             output_var = maybe_cuda(Variable(
                 torch.LongTensor([self._embedding.encode_token(correct_stem)
                                   if self._embedding.has_token(correct_stem)
