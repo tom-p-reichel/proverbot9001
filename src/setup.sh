@@ -63,22 +63,6 @@ function setup-coq-menhir {
         make && make install
     )
 }
-
-function setup-compcert {
-    check-and-clone\
-        "CompCert" "https://github.com/AbsInt/CompCert.git"\
-        "47f63df0a43209570de224f28cf53da6a758df16"
-    (
-        set -euv
-        cd CompCert
-        if [[ ! -f "Makefile.config" ]]; then
-            PATH="$PWD/../coq/bin:$PATH" ./configure x86_64-linux
-        fi
-        PATH="$PWD/../coq/bin:$PATH" make -j `nproc`
-    ) || exit 1
-}
-
 setup-coq
 setup-coq-serapi
 setup-coq-menhir
-setup-compcert
