@@ -1,6 +1,7 @@
 /.gcroots/
 *__pycache__/
 /CompCert/
+/software-foundations
 /coq/
 /coq-serapi/
 /darknet/
@@ -9,10 +10,12 @@
 *.swp
 *.vo
 /coq-menhirlib/
-/data/scrape.txt
+/data/*scrape*.txt
 /data/scrape.bkp
-report-*
-report/
+*report*
 *weights*
 *.mypy_cache/*
-*/.mypy_cache/*
+*/.mypy_cache
+*.pickle
+reports/index.css
+
