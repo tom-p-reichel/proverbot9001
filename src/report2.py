@@ -192,6 +192,8 @@ def report_file(args : argparse.Namespace,
     try:
         scrape_path = args.prelude + "/" + filename + ".scrape"
         interactions = list(read_text_data_singlethreaded(scrape_path))
+        if len(interactions) == 0:
+            return None
         print("Loaded {} interactions for file {}".format(len(interactions), filename))
     except FileNotFoundError:
         print("Couldn't find file {}, skipping...".format(scrape_path))
