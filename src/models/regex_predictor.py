@@ -34,7 +34,7 @@ class RegexPredictor(TacticPredictor):
         return predictions, 0.0
         pass
     def predictKTactics(self, in_data : TacticContext, k : int) -> List[Prediction]:
-        if re.match(in_data.goal.strip(), "forall"):
+        if re.match("forall", in_data.goal.strip()):
             return [Prediction("intros.", 1.0),
                     Prediction("eauto.", 0.1)]
         else:
