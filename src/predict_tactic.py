@@ -2,7 +2,7 @@
 
 import torch
 from typing import Dict, List, Union
-from models.tactic_predictor import TacticPredictor
+from models.tactic_predictor import TacticPredictor, TrainablePredictor
 
 from models import encdecrnn_predictor
 from models import try_common_predictor
@@ -67,5 +67,6 @@ def loadPredictor(filename : str, predictor_type : str) -> TacticPredictor:
     # that derive from TacticPredictor, but are not tactic
     # predictor". But I don't know how to specify that.
     predictor = predictors[predictor_type]() # type: ignore
-    predictor.load_saved_state(*torch.load(filename))
+    if isinstance(predictor, TrainablePredictor):
+        predictor.load_saved_state(*torch.load(filename))
     return predictor
