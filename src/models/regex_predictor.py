@@ -23,6 +23,7 @@ class RegexPredictor(TacticPredictor):
         pass
 
     def getOptions(self) -> List[Tuple[str, str]]:
+        return [("context_filter", "default")]
         pass
 
     def predictKTacticsWithLoss_batch(self,
