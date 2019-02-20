@@ -19,6 +19,9 @@ from models import pec_predictor
 from models import features_predictor
 from models import encfeatures_predictor
 from models import featuressvm_predictor
+from models import regex_predictor
+
+from typing import Dict, Callable, List
 
 predictors = {
     'encdec' : encdecrnn_predictor.EncDecRNNPredictor,
@@ -36,6 +39,26 @@ predictors = {
     'features' : features_predictor.FeaturesPredictor,
     'featuressvm' : featuressvm_predictor.FeaturesSVMPredictor,
     'encfeatures' : encfeatures_predictor.EncFeaturesPredictor,
+    'regex' : regex_predictor.RegexPredictor,
+}
+
+trainable_models : Dict[str, Callable[[List[str]], None]] = {
+    "encclass" : encclass_predictor.main,
+    "encdec" : encdecrnn_predictor.main,
+    "dnnclass" : dnnclass_predictor.main,
+    "trycommon" : try_common_predictor.train,
+    "wordbagclass" : wordbagclass_predictor.main,
+    "ngramclass" : ngramclass_predictor.main,
+    "k-nearest" : k_nearest_predictor.main,
+    "autoclass" : autoclass_predictor.main,
+    "wordbagsvm" : wordbagsvm_classifier.main,
+    "ngramsvm" : ngramsvm_classifier.main,
+    "hyparg" : hyparg_predictor.main,
+    "pec" : pec_predictor.main,
+    "features" : features_predictor.main,
+    "encfeatures" : encfeatures_predictor.main,
+    "featuressvm" : featuressvm_predictor.main,
+    'regex' : regex_predictor.main,
 }
 
 def loadPredictor(filename : str, predictor_type : str) -> TacticPredictor:
