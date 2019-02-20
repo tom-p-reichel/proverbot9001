@@ -430,7 +430,8 @@ def write_html(output_dir : str, filename : str, command_results : List[CommandR
                     doc.stag("br")
                     with tag('button', klass='collapsible'):
                         with tag('code', klass='buttontext'):
-                            assert isinstance(region[0], Tuple[str])
+                            assert isinstance(region[0], tuple)
+                            assert isinstance(region[0][0], str)
                             text(region[0][0].strip("\n"))
                     with tag('div', klass='region'):
                         for cmd_idx, command_result in enumerate(region[1:]):
