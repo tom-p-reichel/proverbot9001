@@ -332,7 +332,9 @@ class Worker(threading.Thread):
                 command = commands[i]
                 # print("Processing command {}/{}".format(str(i+1), str(nb_commands)))
                 in_proof = (coq.proof_context and
-                            not re.match(".*Proof.*", command.strip()))
+                            not re.match(".*Proof.*", command.strip()) and
+                            not re.match(".*Admitted.*", command.strip()) and
+                            not re.match(".*Abort.*", command.strip()))
                 if in_proof:
                     prev_tactics.append(command)
                     hyps = coq.get_hypothesis()
@@ -341,10 +343,12 @@ class Worker(threading.Thread):
                         predictions_and_certanties = [baseline_tactic + ".", 1] \
                                                      * num_predictions
                     else:
+                        # print("goals: {}, hyps: {}".format(goals, hyps))
                         predictions_and_certainties, loss = net.predictKTacticsWithLoss(
                             TacticContext(prev_tactics, hyps, goals),
                             num_predictions,
                             command)
+                        # print("predictions_and_certainties: {}".format(predictions_and_certainties))
 
                     prediction_runs = [run_prediction(coq, prediction) for
                                        prediction, certainty in
@@ -527,8 +531,13 @@ def main(arg_list : List[str]) -> None:
 
     coqargs = ["{}/coq-serapi/sertop.native".format(base),
                "--prelude={}/coq".format(base)]
-    includes = subprocess.Popen(['make', '-C', args.prelude, 'print-includes'],
-                                stdout=subprocess.PIPE).communicate()[0].decode('utf-8')
+    try:
+        with open("{}/_CoqProject".format(args.prelude), 'r') as coqproject:
+            includes = coqproject.read().strip()
+    except FileNotFoundError:
+        includes = subprocess.Popen(['make', '-C', args.prelude, 'print-includes'],
+                                    stdout=subprocess.PIPE).communicate()[0]\
+                             .decode('utf-8')
 
     # Get some metadata
     cur_commit = subprocess.check_output(["git show --oneline | head -n 1"],

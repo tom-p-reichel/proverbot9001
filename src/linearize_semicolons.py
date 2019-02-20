@@ -150,7 +150,8 @@ def linearize_commands(commands_sequence, coq, filename, skip_nochange_tac):
             command_batch.append(command)
             command = next(commands_sequence, None)
         # Get the QED on there too.
-        command_batch.append(command)
+        if command:
+            command_batch.append(command)
 
         # Now command_batch contains everything through the next
         # Qed/Defined.
@@ -399,7 +400,7 @@ def linearize_proof(coq, theorem_name, with_tactic, commands, skip_nochange_tac)
 
 def split_commas(commands : Iterator[str]) -> Iterator[str]:
     def split_commas_command(command : str) -> Iterator[str]:
-        if not "," in command:
+        if not "," in serapi_instance.kill_comments(command):
             yield command
         else:
             stem = get_stem(command)
@@ -428,8 +429,8 @@ def split_commas(commands : Iterator[str]) -> Iterator[str]:
                     first_command, rest = parts_match.group(1, 3)
                     # print("Splitting {} into {} and {}"
                     #       .format(command, first_command + ". ", "rewrite " + rest))
-                    yield first_command + ". "
-                    yield from split_commas_command("rewrite " + rest)
+                    # yield first_command + ". "
+                    # yield from split_commas_command("rewrite " + rest)
             elif stem == "unfold":
                 parts_match = re.match("\s*(unfold\s+.*?),\s*(.*\.)", command)
                 assert parts_match, "Couldn't match \"{}\"".format(command)

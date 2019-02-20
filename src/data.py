@@ -248,7 +248,11 @@ def encode_seq_classify_data(data : RawDataset,
                              num_relevance_samples : int = 1000) \
     -> Tuple[ClassifySequenceDataset, Tokenizer, SimpleEmbedding]:
     embedding = SimpleEmbedding()
-    subset = RawDataset(random.sample(data, num_relevance_samples))
+    print("Making tokenizer...")
+    if (len(data) > 1000):
+        subset : RawDataset = random.sample(list(data), 1000)
+    else:
+        subset = list(data)
     if load_tokens:
         print("Loading tokens from {}".format(load_tokens))
         tokenizer = torch.load(load_tokens)

@@ -63,6 +63,24 @@ function setup-coq-menhir {
         make && make install
     )
 }
+function setup-software-foundation {
+    check-and-clone\
+        "software-foundations"\
+        "https://github.com/Liby99/software-foundations.git"\
+        "4ebb2252ccb779c39403375d642be0c006879a8f"
+    (
+        set -euv
+        cd software-foundations
+        export PATH="$PWD/../coq/bin:$PATH"
+        coq_makefile `cat ../data/sf-files.txt` > Makefile
+        echo "print-includes:" >> Makefile
+        echo -e "\tcat _CoqProject" >> Makefile
+        echo "-R . Top" >> _CoqProject
+        echo "-I ." >> _CoqProject
+    ) || exit 1
+}
+
 setup-coq
 setup-coq-serapi
 setup-coq-menhir
+setup-software-foundation

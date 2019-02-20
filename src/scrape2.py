@@ -29,9 +29,13 @@ def main():
     args = parser.parse_args()
 
 
-    includes=subprocess.Popen(['make', '-C', args.prelude, 'print-includes'],
-                              stdout=subprocess.PIPE).communicate()[0]\
-                       .strip().decode('utf-8')
+    try:
+        with open("{}/_CoqProject".format(args.prelude), 'r') as coqproject:
+            includes = coqproject.read().strip()
+    except FileNotFoundError:
+        includes=subprocess.Popen(['make', '-C', args.prelude, 'print-includes'],
+                                  stdout=subprocess.PIPE).communicate()[0]\
+                           .strip().decode('utf-8')
 
     thispath = os.path.dirname(os.path.abspath(__file__))
     # Set up the command which runs sertop.
@@ -55,7 +59,7 @@ def scrape_file(coqargs : List[str], skip_nochange_tac : bool, debug : bool, inc
     commands = try_load_lin(full_filename)
     if not commands:
         commands = lift_and_linearize(load_commands(full_filename),
-                                      coqargs, includes, prelude, full_filename, skip_nochange_tac)
+                                      coqargs, includes, prelude, full_filename, skip_nochange_tac, debug=debug)
         save_lin(commands, full_filename)
 
     with serapi_instance.SerapiContext(coqargs, includes, prelude) as coq:
@@ -71,7 +75,8 @@ def scrape_file(coqargs : List[str], skip_nochange_tac : bool, debug : bool, inc
 
 def process_statement(coq : serapi_instance.SerapiInstance, command : str,
                       result_file : TextIO) -> None:
-    if coq.proof_context:
+    if coq.proof_context and not \
+       (re.match("\s*Admitted.", command) or re.match("\s*Abort.", command)):
         prev_tactics = coq.prev_tactics
         prev_hyps = coq.get_hypothesis()
         prev_goal = coq.get_goals()

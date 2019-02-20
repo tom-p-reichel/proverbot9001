@@ -4,6 +4,7 @@
 /software-foundations
 /coq/
 /coq-serapi/
+/software-foundations/
 /darknet/
 *.aux
 *.glob
@@ -19,3 +20,5 @@
 *.pickle
 reports/index.css
 
+*/.mypy_cache/*
+.DS_Store

@@ -491,6 +491,7 @@ def possibly_starting_proof(command : str) -> bool:
             re.match("Fixpoint\s", stripped_command) != None or
             re.match("Corollary\s", stripped_command) != None or
             re.match("Let\s", stripped_command) != None or
+            re.match("Fact\s", stripped_command) != None or
             ("Instance" in stripped_command and
              "Declare" not in stripped_command) or
             re.match("Function\s", stripped_command) != None or
@@ -502,8 +503,16 @@ def ending_proof(command : str) -> bool:
     stripped_command = kill_comments(command).strip()
     return ("Qed" in stripped_command or
             "Defined" in stripped_command or
+            "Admitted" in command or
             (re.match("\s*Proof\s+\S+\s*", stripped_command) != None and
-             re.match("\s*Proof\s+with", stripped_command) == None))
+             re.match("\s*Proof\s+with", stripped_command) == None and
+             re.match("\s*Proof\s+using", stripped_command) == None))
+
+def aborting_proof(command : str) -> bool:
+    return ("Abort" in command)
+
+def admitting_proof(command : str) -> bool:
+    return ("Admitted" in command)
 
 def split_commands(string : str) -> List[str]:
     result = []
