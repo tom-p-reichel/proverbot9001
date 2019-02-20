@@ -33,10 +33,10 @@ scrape:
 				        		     --prelude CompCert
 report:
 	cat data/sf-test-files.txt | $(HEAD_CMD) | \
-	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --prelude ./CompCert $(FLAGS)
+	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --predictor=regex --weightsfile=data/regex-weights.tar --prelude ./CompCert $(FLAGS)
 
 train:
-	./src/proverbot9001.py train regexp data/scrape.txt data/regexp-weights.tar $(FLAGS) 
+	./src/proverbot9001.py train regex data/scrape.txt data/regex-weights.tar $(FLAGS)
 
 INDEX_FILES=index.js index.css build-index.py
 
