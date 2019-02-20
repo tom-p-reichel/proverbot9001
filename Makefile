@@ -27,12 +27,12 @@ setup:
 
 scrape:
 	mv data/scrape.txt data/scrape.bkp 2>/dev/null || true
-	cat data/sf-train-files.txt | $(HEAD_CMD) | \
+	cat data/sf-files.txt | $(HEAD_CMD) | \
 	xargs python3 src/scrape2.py $(FLAGS) -j $(NTHREADS) --output data/scrape.txt \
-				        		     --prelude CompCert
+				        		     --prelude software-foundations
 report:
 	cat data/sf-test-files.txt | $(HEAD_CMD) | \
-	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --predictor=regex --weightsfile=data/regex-weights.tar --prelude ./CompCert $(FLAGS)
+	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --predictor=regex --weightsfile=data/regex-weights.tar --prelude ./software-foundations $(FLAGS)
 
 train:
 	./src/proverbot9001.py train regex data/scrape.txt data/regex-weights.tar $(FLAGS)
