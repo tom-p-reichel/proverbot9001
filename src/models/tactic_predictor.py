@@ -28,9 +28,10 @@ class TacticPredictor(metaclass=ABCMeta):
     @abstractmethod
     def predictKTactics(self, in_data : TacticContext, k : int) \
         -> List[Prediction]: pass
-    @abstractmethod
     def predictKTacticsWithLoss(self, in_data : TacticContext, k : int, correct : str) -> \
-        Tuple[List[Prediction], float]: pass
+        Tuple[List[Prediction], float]:
+        predictions, loss = self.predictKTacticsWithLoss_batch([in_data], k, [correct])
+        return predictions[0], loss
     @abstractmethod
     def predictKTacticsWithLoss_batch(self,
                                       in_data : List[TacticContext],
@@ -49,7 +50,7 @@ class PredictorState(metaclass=ABCMeta):
 
 DatasetType = TypeVar('DatasetType', bound=Dataset)
 MetadataType = TypeVar('MetadataType')
-StateType = TypeVar('StateType', bound=PredictorState)
+StateType = TypeVar('StateType')
 
 class TrainablePredictor(TacticPredictor, Generic[DatasetType, MetadataType, StateType],
                          metaclass=ABCMeta):

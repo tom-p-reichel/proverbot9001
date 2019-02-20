@@ -16,6 +16,8 @@ from serapi_instance import get_stem
 from data import get_text_data, Dataset, TokenizedDataset
 
 from dataclasses import dataclass
+from tokenizer import Tokenizer
+from models.components import Embedding
 
 class TryCommonSample(NamedTuple):
     tactic : int
@@ -47,10 +49,10 @@ class TryCommonPredictor(TokenizingPredictor[TryCommonDataset, List[float]]):
                                       in_data : List[TacticContext],
                                       k : int, correct : List[str]) -> \
                                       Tuple[List[List[Prediction]], float]:
-        return [self.predictKTactics({}, k)] * len(in_data), 0.
+        return [self.predictKTactics(in_data[0], k)] * len(in_data), 0.
     def _encode_tokenized_data(self, data : TokenizedDataset, arg_values : Namespace,
-                              term_vocab_size : int, tactic_vocab_size : int) \
-                              -> TryCommonDataset:
+                               tokenizer : Tokenizer, embedding : Embedding) \
+                               -> TryCommonDataset:
         return TryCommonDataset([TryCommonSample(tactic)
                                  for prev_tactics, goal, tactic in
                                  data])

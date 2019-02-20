@@ -246,7 +246,7 @@ def report_file(args : argparse.Namespace,
             stats.add_tactic(prediction_results,
                              correct_tactic)
         elif isinstance(inter, ScrapedTactic):
-            command_results.append((inter.tactic,inter.hypotheses, inter.goal, []))
+            command_results.append(TacticResult(inter.tactic,inter.hypotheses, inter.goal, []))
         else:
             command_results.append((inter,))
 
@@ -384,7 +384,7 @@ def split_into_regions(results : List[CommandResult]) -> List[List[CommandResult
     curRegion : List[CommandResult] = []
     inProof = False
     for prev_command_result, command_result, next_command_result in \
-        zip([("None")] + results, results, results[1:]):
+        zip(cast(List[CommandResult], [("None")]) + results, results, results[1:]):
         if inProof and len(command_result) == 1:
             inProof = False
             regions.append(curRegion + [command_result])
@@ -428,6 +428,7 @@ def write_html(output_dir : str, filename : str, command_results : List[CommandR
                     doc.stag("br")
                     with tag('button', klass='collapsible'):
                         with tag('code', klass='buttontext'):
+                            assert isinstance(region[0], Tuple[str])
                             text(region[0][0].strip("\n"))
                     with tag('div', klass='region'):
                         for cmd_idx, command_result in enumerate(region[1:]):
@@ -440,13 +441,16 @@ def write_html(output_dir : str, filename : str, command_results : List[CommandR
                             #     with tag('code', klass='plaincommand'):
                             #         text("\n" + command_result[0].strip('\n'))
                             else:
+                                prediction_results : List[PredictionResult]
                                 command, hyps, goal, prediction_results = \
                                     cast(TacticResult, command_result)
+                                predictions : List[List[Prediction]]
+                                grades : List[str]
+                                certainties : List[float]
                                 if len(prediction_results) > 0:
-                                    predictions, grades, certainties = \
-                                        zip(*prediction_results)
+                                    predictions, grades, certainties = zip(*prediction_results) # type: ignore
                                 else:
-                                    predictions, grades, certainties = [], [], []
+                                    predictions, grades, certainties = ([], [], [])
                                 with tag('span',
                                          ('data-hyps',"\n".join(hyps)),
                                          ('data-goal',format_goal(goal)),

@@ -48,7 +48,7 @@ class NGramSVMClassifier(TokenizingPredictor[NGramDataset, svm.SVC]):
                                tokenizer : Tokenizer, embedding : Embedding) \
         -> NGramDataset:
         return NGramDataset([NGramSample(getNGramTokenbagVector(arg_values.num_grams,
-                                                                term_vocab_size,
+                                                                tokenizer.numTokens(),
                                                                 goal),
                                          tactic) for prev_tactic, goal, tactic in data])
 
@@ -58,8 +58,8 @@ class NGramSVMClassifier(TokenizingPredictor[NGramDataset, svm.SVC]):
             encode_ngram_classify_input(in_data.goal,
                                         self.training_args.num_grams,
                                         self._tokenizer)
-        distribution = self._model.predict_log_proba([feature_vector])[0]
-        return distribution
+        distribution = self._model.predict_log_proba([cast(List[float], feature_vector)])[0]
+        return FloatTensor(distribution)
 
     def predictKTactics(self, in_data : TacticContext, k : int) \
         -> List[Prediction]:
@@ -111,7 +111,9 @@ class NGramSVMClassifier(TokenizingPredictor[NGramDataset, svm.SVC]):
         print("Training SVM...", end="")
         sys.stdout.flush()
         model = svm.SVC(gamma='scale', kernel=arg_values.kernel, probability=True)
-        inputs, outputs = zip(*encoded_data.data)
+        inputs : List[List[float]]
+        outputs : List[int]
+        inputs, outputs = zip(*encoded_data.data) # type: ignore
         model.fit(inputs, outputs)
         print(" {:.2f}s".format(time.time() - curtime))
         loss = model.score(inputs, outputs)

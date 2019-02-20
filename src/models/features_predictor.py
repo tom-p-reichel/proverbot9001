@@ -92,11 +92,11 @@ class FeaturesPredictor(TrainablePredictor[FeaturesDataset,
         self._criterion = maybe_cuda(nn.NLLLoss())
         self._lock = threading.Lock()
     def _get_vec_features(self, context : TacticContext) -> List[float]:
-        assert self._vec_feature_functions != None
+        assert self._vec_feature_functions
         return [feature_val for feature in self._vec_feature_functions
                 for feature_val in feature(context)]
     def _get_word_features(self, context : TacticContext) -> List[int]:
-        assert self._word_feature_functions != None
+        assert self._word_feature_functions
         return [feature(context) for feature in self._word_feature_functions]
     def _predictDistributions(self, in_datas : List[TacticContext]) -> torch.FloatTensor:
         vec_feature_values = [self._get_vec_features(in_data) for in_data in in_datas]
@@ -172,8 +172,8 @@ class FeaturesPredictor(TrainablePredictor[FeaturesDataset,
                 torch.LongTensor(tactics)]
     def _get_model(self, arg_values : Namespace, tactic_vocab_size : int) \
         -> FeaturesClassifier:
-        assert self._vec_feature_functions != None
-        assert self._word_feature_functions != None
+        assert self._vec_feature_functions
+        assert self._word_feature_functions
         feature_vec_size = sum([feature.feature_size()
                                 for feature in self._vec_feature_functions])
         word_feature_vocab_sizes = [feature.vocab_size()
