@@ -32,18 +32,23 @@ setup:
 scrape:
 	mv data/scrape.txt data/scrape.bkp 2>/dev/null || true
 	cd src && \
-	cat ../data/compcert-train-files.txt | $(HEAD_CMD) | \
-	xargs ./scrape2.py $(FLAGS) -j $(NTHREADS) --output ../data/scrape.txt \
-				        		 --prelude ../CompCert
+	cat ../data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
+	xargs ./scrape2.py $(FLAGS) -j $(NTHREADS) --output ../data/scrape.txt --test-percentage 0.1 \
+				        		 --test-theorems-file ../data/test_theorems.txt --prelude ../CompCert
 report:
 	($(ENV_PREFIX) ; cat data/compcert-test-files.txt | $(HEAD_CMD) | \
 	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --prelude ./CompCert $(FLAGS))
 
 train:
-	./src/proverbot9001.py train ngramclass data/scrape.txt data/pytorch-weights.tar $(FLAGS) #--hidden-size $(HIDDEN_SIZE)
+	./src/proverbot9001.py train hypfeatures data/scrape.txt data/pytorch-weights.tar $(FLAGS) #--hidden-size $(HIDDEN_SIZE)
 
-test:
-	./src/proverbot9001.py report -j $(NTHREADS) --prelude ./CompCert ./lib/Parmov.v --predictor=ngramclass
+dynamic-test:
+	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
+	xargs ./src/proverbot9001.py dynamic-report -j $(NTHREADS) --context-filter goal-changes%no-args%in-testset --weightsfile data/pytorch-weights.tar --prelude ./CompCert $(FLAGS))
+
+static-test:
+	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
+	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --context-filter goal-changes%no-args%in-testset --weightsfile data/pytorch-weights.tar --prelude ./CompCert $(FLAGS))
 
 INDEX_FILES=index.js index.css build-index.py
 
@@ -87,3 +92,4 @@ clean:
 
 clean-lin:
 	fd '.*\.v\.lin' CompCert | xargs rm
+	fd '.*\.v\.scrape' CompCert | xargs rm

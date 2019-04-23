@@ -512,6 +512,10 @@ class SerapiContext:
     def __exit__(self, type, value, traceback):
         self.coq.kill()
 
+# def get_theorem_name(command : str) -> str:
+#     if serapi_instance.possibly_starting_proof(command):
+#         curr_theorem = "." + self.prelude + ":" + command.split()[1].strip()
+
 def possibly_starting_proof(command : str) -> bool:
     stripped_command = kill_comments(command).strip()
     return (re.match("Lemma\s", stripped_command) != None or

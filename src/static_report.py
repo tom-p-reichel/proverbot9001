@@ -87,7 +87,7 @@ def main(arg_list : List[str]) -> None:
                         default="static-report")
     parser.add_argument("--message", "-m", default=None)
     parser.add_argument('--context-filter', dest="context_filter", type=str,
-                        default=None)
+                        default="goal-changes%no-args%in-testset")
     parser.add_argument('--weightsfile', default=None)
     parser.add_argument('--predictor', choices=list(static_predictors.keys()),
                         default=None)
@@ -114,7 +114,10 @@ def main(arg_list : List[str]) -> None:
         os.makedirs(args.output)
 
     context_filter = args.context_filter or dict(predictor.getOptions())["context_filter"]
-
+    # print(context_filter)
+    # exit()
+    # import pdb
+    # pdb.set_trace()
     with multiprocessing.pool.ThreadPool(args.threads) as pool:
         file_results = \
             list((stats for stats in
@@ -169,20 +172,28 @@ def report_file(args : argparse.Namespace,
             yield lst.pop()[1]
         yield from list(reversed([c for _, c in lic]))
         yield from list(reversed([b for _, b in lib]))
-    def get_should_filter(data : MixedDataset) -> Iterable[Tuple[ScrapedCommand, bool]]:
+    def get_should_filter(data : MixedDataset, filename : str) -> Iterable[Tuple[ScrapedCommand, bool]]:
         list_data : List[ScrapedCommand] = list(data)
         extended_list : List[Optional[ScrapedCommand]] = \
             cast(List[Optional[ScrapedCommand]], list_data[1:])  + [None]
         for point, nextpoint in zip(list_data, extended_list):
             if isinstance(point, ScrapedTactic):
+                try:
+                    theorem_name = "." + filename + ":" + point.prev_tactics[0].split()[1].strip() + ":"
+                except:
+                    yield (point, True)
+                    continue
                 if isinstance(nextpoint, ScrapedTactic):
-                    yield(point, not context_filter({"goal":format_goal(point.goal),
+                    if theorem_name[-1] == ":": theorem_name = theorem_name[:-1]
+                    yield(point, not context_filter({"theorem":theorem_name,
+                                                     "goal":format_goal(point.goal),
                                                      "hyps":point.hypotheses},
                                                     point.tactic,
                                                     {"goal":format_goal(nextpoint.goal),
                                                      "hyps":nextpoint.hypotheses}))
                 else:
-                    yield(point, not context_filter({"goal":format_goal(point.goal),
+                    yield(point, not context_filter({"theorem":theorem_name,
+                                                     "goal":format_goal(point.goal),
                                                      "hyps":point.hypotheses},
                                                     point.tactic,
                                                     {"goal":"",
@@ -200,7 +211,7 @@ def report_file(args : argparse.Namespace,
 
     command_results : List[CommandResult] = []
     stats = ResultStats(filename)
-    indexed_filter_aware_interactions = list(enumerate(get_should_filter(interactions)))
+    indexed_filter_aware_interactions = list(enumerate(get_should_filter(interactions, args.prelude + "/" + filename)))
     for idx, (interaction, should_filter) in indexed_filter_aware_interactions:
         assert isinstance(idx, int)
         if not should_filter:

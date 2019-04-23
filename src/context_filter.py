@@ -83,6 +83,13 @@ def args_in_goal(in_data : ContextData, tactic : str,
             return False
     return True
 
+TESTSET = set(theorem.strip() for theorem in open("data/test_theorems.txt").readlines())
+
+def theorem_in_testset(in_data : ContextData, tactic : str,
+                        next_in_data : ContextData) -> bool:
+    theorem_name = in_data["theorem"]
+    return theorem_name in TESTSET
+
 def split_toplevel(specstr : str) -> List[str]:
     paren_depth = 0
     operators = ["%", "+"]
@@ -160,4 +167,5 @@ context_filters : Dict[str, ContextFilter] = {
     "no-args": filter_and(no_args, no_compound_or_bullets),
     "hyp-args":filter_and(args_vars_in_context, no_compound_or_bullets),
     "goal-args" : args_in_goal,
+    "in-testset" : theorem_in_testset,
 }

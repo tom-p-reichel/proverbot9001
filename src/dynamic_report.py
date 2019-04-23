@@ -333,8 +333,13 @@ class Worker(threading.Thread):
             coq.debug = self.debug
             nb_commands = len(commands)
             prev_tactics = []
+            curr_theorem = None
             for i in range(nb_commands):
                 command = commands[i]
+                if serapi_instance.possibly_starting_proof(command):
+                    curr_theorem = "." + self.prelude + ":" + command.split()[1].strip()
+                elif serapi_instance.ending_proof(command):
+                    curr_theorem = None
                 # print("Processing command {}/{}".format(str(i+1), str(nb_commands)))
                 in_proof = (coq.proof_context and
                             not re.match(".*Proof.*", command.strip()))
@@ -378,7 +383,12 @@ class Worker(threading.Thread):
                                           for prediction_run, (prediction, certainty) in
                                           zip(prediction_runs,
                                               predictions_and_certainties)]
-                    if self.cfilter({"goal": format_goal(goals),
+                    # print("===========")
+                    # print(prev_tactics)
+                    # print("===========")
+                    # exit()
+                    if self.cfilter({"theorem": curr_theorem,
+                                     "goal": format_goal(goals),
                                      "hyps": format_hypothesis(hyps)},
                                     command,
                                     {"goal": format_goal(actual_result_goal),
@@ -523,7 +533,7 @@ def main(arg_list : List[str]) -> None:
                         .format(baseline_tactic),
                         default=False, const=True, action='store_const')
     parser.add_argument('--context-filter', dest="context_filter", type=str,
-                        default=None)
+                        default="goal-changes%no-args%in-testset")
     parser.add_argument('--weightsfile', default=None)
     parser.add_argument('--predictor', choices=list(static_predictors.keys()),
                         default=None)
