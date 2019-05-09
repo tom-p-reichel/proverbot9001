@@ -201,6 +201,7 @@ class GlobalResult:
                 line('td', stringified_percent(self.num_topNPartial,
                                                self.num_tactics))
                 line('td', "{:10.2f}".format(self.total_loss / self.num_tactics))
+                # line('td', "{:10.2f}".format(self.total_loss))
 
     pass
 
@@ -337,7 +338,7 @@ class Worker(threading.Thread):
             for i in range(nb_commands):
                 command = commands[i]
                 if serapi_instance.possibly_starting_proof(command):
-                    curr_theorem = "." + self.prelude + ":" + command.split()[1].strip()
+                    curr_theorem = "." + self.prelude + "/" + filename + ":" + command.split()[1].strip()
                 elif serapi_instance.ending_proof(command):
                     curr_theorem = None
                 # print("Processing command {}/{}".format(str(i+1), str(nb_commands)))
@@ -384,7 +385,7 @@ class Worker(threading.Thread):
                                           zip(prediction_runs,
                                               predictions_and_certainties)]
                     # print("===========")
-                    # print(prev_tactics)
+                    # print(curr_theorem)
                     # print("===========")
                     # exit()
                     if self.cfilter({"theorem": curr_theorem,

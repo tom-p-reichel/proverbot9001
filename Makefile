@@ -42,13 +42,18 @@ report:
 train:
 	./src/proverbot9001.py train hypfeatures data/scrape.txt data/pytorch-weights.tar $(FLAGS) #--hidden-size $(HIDDEN_SIZE)
 
-dynamic-test:
-	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
-	xargs ./src/proverbot9001.py dynamic-report -j $(NTHREADS) --context-filter goal-changes%no-args%in-testset --weightsfile data/pytorch-weights.tar --prelude ./CompCert $(FLAGS))
-
 static-test:
 	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
-	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --context-filter goal-changes%no-args%in-testset --weightsfile data/pytorch-weights.tar --prelude ./CompCert $(FLAGS))
+	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --weightsfile=data/hypfeatures-weights.dat --prelude ./CompCert)
+
+dynamic-test:
+	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
+	xargs ./src/proverbot9001.py dynamic-report -j $(NTHREADS) --weightsfile=data/hypfeatures-weights.dat --prelude ./CompCert)
+
+search-test:
+	($(ENV_PREFIX) ; cat data/compcert-demo-files.txt | $(HEAD_CMD) | \
+	xargs ./src/proverbot9001.py search-report -j $(NTHREADS) --weightsfile=data/hypfeatures-weights.dat --prelude ./CompCert)
+
 
 INDEX_FILES=index.js index.css build-index.py
 

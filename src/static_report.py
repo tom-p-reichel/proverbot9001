@@ -270,7 +270,7 @@ def report_file(args : argparse.Namespace,
     print("Finished output for file {}".format(filename))
     return stats
 
-proper_subs = {"auto.": "eauto."}
+proper_subs = {"auto.": "eauto.", "constructor.":"econstructor."}
 
 def grade_prediction(correct_tactic : str, prediction : str):
     if correct_tactic.strip() == prediction.strip():
