@@ -47,7 +47,7 @@ static-test:
 	xargs ./src/proverbot9001.py static-report -j $(NTHREADS) --weightsfile=data/hypfeatures-weights.dat --prelude ./CompCert)
 
 dynamic-test:
-	($(ENV_PREFIX) ; cat data/compcert-scrapable-files.txt | $(HEAD_CMD) | \
+	($(ENV_PREFIX) ; cat data/compcert-demo-files.txt | $(HEAD_CMD) | \
 	xargs ./src/proverbot9001.py dynamic-report -j $(NTHREADS) --weightsfile=data/hypfeatures-weights.dat --prelude ./CompCert)
 
 search-test:
