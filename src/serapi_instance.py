@@ -63,7 +63,7 @@ class SerapiInstance(threading.Thread):
     # ".debug" field after you've created it to get more verbose
     # logging.
     def __init__(self, coq_command : List[str], includes : str, prelude : str,
-                 timeout : int = 30) -> None:
+                 timeout : int = 5) -> None:
         # Set up some threading stuff. I'm not totally sure what
         # daemon=True does, but I think I wanted it at one time or
         # other.
