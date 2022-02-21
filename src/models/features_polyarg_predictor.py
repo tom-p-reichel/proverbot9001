@@ -69,42 +69,7 @@ from typing import (List, Tuple, NamedTuple, Optional, Sequence, Dict,
 
 from enum import Enum, auto
 
-
-class ArgType(Enum):
-    HYP_ID = auto()
-    GOAL_TOKEN = auto()
-    NO_ARG = auto()
-
-
-class HypIdArg(NamedTuple):
-    hyp_idx: int
-
-
-class GoalTokenArg(NamedTuple):
-    token_idx: int
-
-
-TacticArg = Optional[Union[HypIdArg, GoalTokenArg]]
-
-
-class FeaturesPolyArgSample(NamedTuple):
-    num_hyps: int
-    tokenized_hyp_types: List[List[int]]
-    hyp_features: List[List[float]]
-    tokenized_goal: List[int]
-    word_features: List[int]
-    vec_features: List[float]
-    tactic_stem: int
-    arg_type: ArgType
-    arg: TacticArg
-
-
-class FeaturesPolyArgDataset(ListDataset[FeaturesPolyArgSample]):
-    pass
-
-
 FeaturesPolyargState = Tuple[Any, NeuralPredictorState]
-
 
 class GoalTokenEncoderModel(nn.Module):
     def __init__(self, stem_vocab_size: int,
