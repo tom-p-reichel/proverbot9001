@@ -313,29 +313,6 @@ class FeaturesPolyargPredictor(
                 torch.save((self.shortname(),
                             (arg_values, sys.argv, metadata, state)), f)
 
-    def predictKTactics_batch(self, contexts: List[TacticContext], k: int,
-                              verbosity:int = 0) -> List[List[Prediction]]:
-        with torch.no_grad():
-            all_predictions_batch = self.getAllPredictionIdxs_batch(contexts,
-                                                                    verbosity=verbosity)
-
-        def generate():
-            for context, prediction_idxs in zip(
-                    contexts, all_predictions_batch):
-                predictions = self.decodeNonDuplicatePredictions(
-                    context, prediction_idxs, k)
-
-                yield predictions
-
-        predictions = list(generate())
-
-        # for context, pred_list in zip(contexts, predictions):
-        #     for batch_pred, single_pred in zip(
-        #             pred_list, self.predictKTactics(context, k)):
-        #         assert batch_pred.prediction == single_pred.prediction, \
-        #             (batch_pred, single_pred)
-        return predictions
-
     def getAllPredictionIdxs(self, context: TacticContext
                              ) -> List[Tuple[float, int, int]]:
         assert self.training_args
@@ -376,60 +353,7 @@ class FeaturesPolyargPredictor(
         result = list(zip(list(final_probs), list(predicted_stem_idxs),
                           list(predicted_arg_idxs)))
         return result
-
-    def getAllPredictionIdxs_batch(self, contexts: List[TacticContext],
-                                   verbosity:int = 0) -> List[List[Tuple[float, int, int]]]:
-        assert self.training_args
-        assert self._model
-
-        num_stem_poss = get_num_tokens(self.metadata)
-        stem_width = min(self.training_args.max_beam_width, num_stem_poss)
-
-        tokenized_premises_batch, premise_features_batch, \
-            nhyps_batch, tokenized_goal_batch, \
-            goal_mask, \
-            word_features, vec_features = \
-            sample_fpa_batch(extract_dataloader_args(self.training_args),
-                             self.metadata,
-                             [context_py2r(context)
-                              for context in contexts])
-
-        stem_certainties_batch, stem_idxs_batch = self.predict_stems(
-            stem_width, word_features, vec_features)
-
-        goal_arg_values_batch = self.goal_token_scores(
-            stem_idxs_batch, tokenized_goal_batch, goal_mask)
-
-        idxs_batch = []
-
-        for (stem_certainties, stem_idxs,
-             goal_arg_values, tokenized_goal,
-             tokenized_premises,
-             premise_features) in \
-            tqdm(zip(stem_certainties_batch, stem_idxs_batch,
-                     goal_arg_values_batch, tokenized_goal_batch,
-                     tokenized_premises_batch, premise_features_batch),
-                 desc="Assessing hyp args and decoding indices",
-                 total=len(contexts),
-                 disable=verbosity <= 1):
-            if len(tokenized_premises) > 0:
-                premise_arg_values = self.hyp_name_scores(
-                    stem_idxs,
-                    tokenized_goal,
-                    tokenized_premises,
-                    premise_features)
-                total_scores = torch.cat((goal_arg_values.unsqueeze(0),
-                                          premise_arg_values),
-                                         dim=2)
-            else:
-                total_scores = goal_arg_values.unsqueeze(0)
-
-            probs, stems, args = self.predict_args(
-                total_scores, stem_certainties, stem_idxs)
-            idxs_batch.append(list(zip(list(probs), list(stems), list(args))))
-
-        return idxs_batch
-
+    
     def decodeNonDuplicatePredictions(
             self, context: TacticContext,
             all_idxs: List[Tuple[float, int, int]],
@@ -478,81 +402,7 @@ class FeaturesPolyargPredictor(
             context, all_predictions, k)
 
         return predictions
-
-    def predictionCertainty(self, context: TacticContext, prediction: str) -> float:
-
-        assert self.training_args
-        assert self._model
-
-        num_stem_poss = get_num_tokens(self.metadata)
-        stem_width = min(self.training_args.max_beam_width, num_stem_poss)
-
-        tokenized_premises, hyp_features, \
-            nhyps_batch, tokenized_goal, \
-            goal_mask, \
-            word_features, vec_features = \
-            sample_fpa(extract_dataloader_args(self.training_args),
-                       self.metadata,
-                       context.relevant_lemmas,
-                       context.prev_tactics,
-                       context.hypotheses,
-                       context.goal)
-
-        prediction_stem, prediction_args = \
-            serapi_instance.split_tactic(prediction)
-        prediction_stem_idx = encode_fpa_stem(extract_dataloader_args(self.training_args),
-                                              self.metadata, prediction_stem)
-        stem_distributions = self._model.stem_classifier(
-            maybe_cuda(torch.LongTensor(word_features)),
-            maybe_cuda(torch.FloatTensor(vec_features)))
-        stem_certainties, stem_idxs = stem_distributions.topk(stem_width)
-        if prediction_stem_idx in stem_idxs[0]:
-            merged_stem_idxs = stem_idxs
-            merged_stem_certainties = stem_certainties
-        else:
-            merged_stem_idxs = torch.cat(
-                (maybe_cuda(torch.LongTensor([[prediction_stem_idx]])),
-                 stem_idxs[:, :stem_width-1]),
-                dim=1)
-            cother = stem_certainties[:, :stem_width-1]
-            val = stem_distributions[0][prediction_stem_idx]
-            merged_stem_certainties = \
-                torch.cat((val.view(1, 1), cother),dim=1)
-
-        prediction_stem_idx_idx = list(merged_stem_idxs[0]).index(
-            prediction_stem_idx)
-        prediction_arg_idx = encode_fpa_arg(
-            extract_dataloader_args(self.training_args),
-            self.metadata,
-            context.hypotheses + context.relevant_lemmas,
-            context.goal,
-            prediction_args)
-
-        goal_arg_values = self.goal_token_scores(
-            merged_stem_idxs, tokenized_goal, goal_mask)
-
-        if len(tokenized_premises[0]) > 0:
-            hyp_arg_values = self.hyp_name_scores(
-                merged_stem_idxs[0], tokenized_goal[0],
-                tokenized_premises[0], hyp_features[0])
-
-            total_scores = torch.cat((goal_arg_values, hyp_arg_values), dim=2)
-        else:
-            total_scores = goal_arg_values
-
-        final_probs, predicted_stem_idxs, predicted_arg_idxs = \
-            self.predict_args(total_scores, merged_stem_certainties,
-                              merged_stem_idxs)
-
-        for prob, stem_idx_idx, arg_idx in zip(final_probs,
-                                               predicted_stem_idxs,
-                                               predicted_arg_idxs):
-            if stem_idx_idx == prediction_stem_idx and \
-               arg_idx == prediction_arg_idx:
-                return math.exp(prob.item())
-
-        assert False, "Shouldn't be able to get here"
-
+    
     def predict_stems(self, k: int,
                       word_features: List[List[int]],
                       vec_features: List[List[float]]
@@ -643,16 +493,6 @@ class FeaturesPolyargPredictor(
                                                dim=0))
         predicted_arg_idxs = arg_idxs % num_probs_per_stem
         return prediction_probs[0], predicted_stem_idxs, predicted_arg_idxs[0]
-
-    def predictKTacticsWithLoss(self, in_data: TacticContext, k: int, correct: str) -> \
-            Tuple[List[Prediction], float]:
-        return self.predictKTactics(in_data, k), 0
-
-    def predictKTacticsWithLoss_batch(self,
-                                      in_datas: List[TacticContext],
-                                      k: int, corrects: List[str]) -> \
-            Tuple[List[List[Prediction]], float]:
-        return self.predictKTactics_batch(in_datas, k), 0
 
     def runHypModel(self, stem_idxs: torch.LongTensor, encoded_goals: torch.FloatTensor,
                     hyps_batch: torch.LongTensor, hypfeatures_batch: torch.FloatTensor):
