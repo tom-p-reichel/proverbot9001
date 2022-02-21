@@ -552,11 +552,6 @@ class FeaturesPolyargPredictor(
         parser.add_argument("--load-embedding", type=str, default=None)
         parser.add_argument("--load-features-state", type=str, default=None)
 
-    def _encode_data(self, data: RawDataset, arg_values: Namespace) \
-        -> Tuple[FeaturesPolyArgDataset, Tuple[Tokenizer, Embedding,
-                                               List[WordFeature], List[VecFeature]]]:
-        pass
-
     def _optimize_model(self, arg_values: Namespace) -> Iterable[FeaturesPolyargState]:
         with print_time("Loading data", guard=arg_values.verbose):
             if arg_values.start_from:
