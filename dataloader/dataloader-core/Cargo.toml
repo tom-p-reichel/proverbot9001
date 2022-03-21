@@ -28,6 +28,7 @@ rand = "0.7.3"
 lalrpop-util = "0.19.0"
 bincode = "*"
 gestalt_ratio = { path = "../gestalt-ratio" }
+itertools = "*"
 
 [build-dependencies]
 lalrpop = { version = "0.19.0", features = ["lexer"] }
