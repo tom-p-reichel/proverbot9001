@@ -329,17 +329,17 @@ pub fn sample_fpa_batch(
     args: DataloaderArgs,
     metadata: PickleableFPAMetadata,
     context_batch: Vec<TacticContext>,
-) -> (
-    (Vec<Vec<Vec<i64>>>,
-     Vec<Vec<Vec<Vec<i64>>>>),
-    FloatUnpaddedTensor3D,
-    LongTensor1D,
-    (Vec<Vec<i64>>,
-     Vec<Vec<Vec<i64>>>),
-    BoolTensor2D,
-    LongTensor2D,
-    FloatTensor2D,
-) {
+    ) -> (
+        (Vec<Vec<Vec<i64>>>,
+         Vec<Vec<Vec<Vec<i64>>>>),
+        FloatUnpaddedTensor3D,
+        LongTensor1D,
+        (Vec<Vec<i64>>,
+         Vec<Vec<Vec<i64>>>),
+        BoolTensor2D,
+        LongTensor2D,
+        FloatTensor2D,
+    ) {
     let (_indexer, tokenizer, ftmap) = fpa_metadata_from_pickleable(metadata);
     let (word_features_batch, vec_features_batch) = context_batch
         .iter()
@@ -536,7 +536,7 @@ pub fn encode_fpa_stem(
     metadata: PickleableFPAMetadata,
     tac_stem: String,
 ) -> i64 {
-    let (mut indexer, _tokenizer, _ftmap) = fpa_metadata_from_pickleable(metadata);
+    let (indexer, _tokenizer, _ftmap) = fpa_metadata_from_pickleable(metadata);
     indexer.lookup(tac_stem)
 }
 

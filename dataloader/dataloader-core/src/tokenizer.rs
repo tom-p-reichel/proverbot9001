@@ -50,7 +50,7 @@ where
                 self.next_idx += 1;
             }
         }
-        *self.map.get(&v).unwrap()
+        self.map.get(&v).unwrap().copied()
     }
     pub fn reverse_lookup(&self, i: i64) -> T {
         self.map
