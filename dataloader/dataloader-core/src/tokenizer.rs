@@ -150,7 +150,7 @@ impl IdentChunkTokenizer {
         self.subword_vocab_size
     }
     pub fn num_keywords(&self) -> i64 {
-        self.keywords.len() as i64
+        (self.keywords.len() + 2) as i64
     }
     pub fn tokenize(&self, sentence: &str) -> Vec<(Token, Vec<Token>)> {
         let mut tokens = Vec::new();
