@@ -41,13 +41,15 @@ where
     pub fn freeze(&mut self) {
         self.frozen = true;
     }
-    pub fn add(&mut self, v: T) {
+    pub fn lookup(&mut self, v: T) -> i64 {
         if !self.map.contains_key(&v) {
-            self.map.insert(v.clone(), self.next_idx);
-            self.next_idx += 1;
+            if self.frozen {
+                return 0;
+            } else {
+                self.map.insert(v.clone(), self.next_idx);
+                self.next_idx += 1;
+            }
         }
-    }
-    pub fn lookup(&self, v: T) -> i64 {
         *self.map.get(&v).unwrap()
     }
     pub fn reverse_lookup(&self, i: i64) -> T {
@@ -148,7 +150,7 @@ impl IdentChunkTokenizer {
         self.subword_vocab_size
     }
     pub fn num_keywords(&self) -> i64 {
-        (self.keywords.len() + 2) as i64
+        self.keywords.len() as i64
     }
     pub fn tokenize(&self, sentence: &str) -> Vec<(Token, Vec<Token>)> {
         let mut tokens = Vec::new();
@@ -196,8 +198,7 @@ impl PyIdentChunkTokenizer {
     pub fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
         match state.extract::<&PyBytes>(py) {
             Ok(s) => {
-                let des: PyIdentChunkTokenizer = deserialize(s.as_bytes()).unwrap();
-                self.inner = des.inner;
+                self.inner = Some(deserialize(s.as_bytes()).unwrap());
                 Ok(())
             }
             Err(e) => Err(e),
@@ -415,7 +416,7 @@ where T: Copy {
     seq
 }
 pub fn normalize_sentence_length(
-    tokenlist: Vec<IdentChunk>,
+    mut tokenlist: Vec<IdentChunk>,
     length: usize,
     chunk_length: usize,
     pad_value: i64,
