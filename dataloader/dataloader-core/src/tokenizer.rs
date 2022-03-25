@@ -50,7 +50,7 @@ where
                 self.next_idx += 1;
             }
         }
-        self.map.get(&v).unwrap().copied()
+        self.map.get(&v).copied().unwrap()
     }
     pub fn reverse_lookup(&self, i: i64) -> T {
         self.map
@@ -416,7 +416,7 @@ where T: Copy {
     seq
 }
 pub fn normalize_sentence_length(
-    mut tokenlist: Vec<IdentChunk>,
+    tokenlist: Vec<IdentChunk>,
     length: usize,
     chunk_length: usize,
     pad_value: i64,
