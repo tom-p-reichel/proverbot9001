@@ -448,7 +448,7 @@ def search_file_worker(args: argparse.Namespace,
                                 TacticInteraction("Proof.", initial_context),
                                 TacticInteraction("Admitted.", initial_context)
                             ]
-                            done.put(((next_file, coq.module_prefix,
+                            done.put(((next_file, coq.sm_prefix,
                                        next_lemma),
                                       SearchResult(SearchStatus.INCOMPLETE,
                                                    solution)))
