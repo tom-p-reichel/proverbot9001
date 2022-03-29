@@ -390,7 +390,7 @@ class FeaturesPolyargPredictor(
         stem_width = min(16, num_stem_poss)
 
         (tokenized_premises, premise_subwords), hyp_features, \
-            nhyps_batch, (tokenized_goal, goal_subwords), \
+            nhyps_batch, (goal_keywords, goal_subwords), \
             goal_mask, \
             word_features, vec_features = \
             sample_fpa(extract_dataloader_args(self.training_args),
@@ -403,12 +403,14 @@ class FeaturesPolyargPredictor(
         stem_certainties, stem_idxs = self.predict_stems(
             stem_width, word_features, vec_features)
 
+        tokenized_goal = self.encode_goal_chunks(self.training_args, self._model,
+                                                 LongTensor(goal_keywords), LongTensor(goal_subwords))
         goal_arg_values = self.goal_token_scores(
             stem_idxs, tokenized_goal, goal_mask)
 
         if len(tokenized_premises[0]) > 0:
             hyp_arg_values = self.hyp_name_scores(
-                stem_idxs[0], tokenized_goal[0],
+                stem_idxs[0], tokenized_goal,
                 tokenized_premises[0], hyp_features[0])
 
             total_scores = torch.cat((goal_arg_values, hyp_arg_values), dim=2)
@@ -618,7 +620,7 @@ class FeaturesPolyargPredictor(
         return stem_probs, stem_idxs
 
     def goal_token_scores(self, stem_idxs: torch.LongTensor,
-                          tokenized_goals: List[List[int]],
+                          tokenized_goals: torch.FloatTensor,
                           goal_masks: List[List[bool]],
                           ) -> torch.FloatTensor:
         assert self._model
@@ -626,14 +628,15 @@ class FeaturesPolyargPredictor(
         batch_size = stem_idxs.size()[0]
         stem_width = stem_idxs.size()[1]
         goal_len = self.training_args.max_length
+        chunk_size = self._model.ident_chunk_encoder.out_size()
         # The goal probabilities include the "no argument" probability
         num_goal_probs = goal_len + 1
         unmasked_probabilities = self._model.goal_args_model(
             stem_idxs.view(batch_size * stem_width),
-            LongTensor(tokenized_goals).view(
-                batch_size, 1, goal_len)
-            .expand(-1, stem_width, -1).contiguous()
-            .view(batch_size * stem_width, goal_len))\
+            tokenized_goals.view(
+                batch_size, 1, goal_len, chunk_size)
+            .expand(-1, stem_width, -1, -1).contiguous()
+            .view(batch_size * stem_width, goal_len, chunk_size))\
             .view(batch_size, stem_width, num_goal_probs)
 
         masked_probabilities = torch.where(
@@ -649,7 +652,7 @@ class FeaturesPolyargPredictor(
 
     def hyp_name_scores(self,
                         stem_idxs: torch.LongTensor,
-                        tokenized_goal: List[int],
+                        tokenized_goal: torch.FloatTensor,
                         tokenized_premises: List[List[int]],
                         premise_features: List[List[float]]
                         ) -> torch.FloatTensor:
@@ -657,7 +660,7 @@ class FeaturesPolyargPredictor(
         assert len(stem_idxs.size()) == 1
         stem_width = stem_idxs.size()[0]
         num_hyps = len(tokenized_premises)
-        encoded_goals = self._model.goal_encoder(LongTensor([tokenized_goal]))
+        encoded_goals = self._model.goal_encoder(tokenized_goal)
         hyp_arg_values = self.runHypModel(stem_idxs.unsqueeze(0),
                                           encoded_goals,
                                           LongTensor([tokenized_premises]),
