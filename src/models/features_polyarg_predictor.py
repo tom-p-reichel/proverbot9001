@@ -174,7 +174,7 @@ class HypArgEncoder(nn.Module):
             nn.Embedding(stem_vocab_size, hidden_size))
         self._in_hidden = maybe_cuda(EncoderDNN(
             hidden_size + goal_data_size, hidden_size, hidden_size, 1))
-        self._hyp_gru = maybe_cuda(nn.GRU(hidden_size, hidden_size))
+        self._hyp_gru = maybe_cuda(nn.GRU(chunk_size, hidden_size))
 
     def forward(self,
                 stems_batch: torch.LongTensor,
@@ -194,8 +194,8 @@ class HypArgEncoder(nn.Module):
             .view(1, batch_size, self.hidden_size)
         hidden = initial_hidden
         for i in range(hyps_batch.size()[1]):
-            token_batch = self._token_embedding(hyps_var[:, i])\
-                .view(1, batch_size, self.hidden_size)
+            token_batch = hyps_var[:, i]\
+                .view(1, batch_size, self.chunk_size)
             token_batch = F.relu(token_batch)
             token_out, hidden = self._hyp_gru(token_batch, hidden)
 
@@ -673,13 +673,13 @@ class FeaturesPolyargPredictor(
         assert self._model
         assert len(stem_idxs.size()) == 1
         stem_width = stem_idxs.size()[0]
-        num_hyps = len(tokenized_premises)
+        num_hyps = tokenized_premises.size()[1]
         encoded_goals = self._model.goal_encoder(tokenized_goal)
         hyp_arg_values = self.runHypModel(stem_idxs.unsqueeze(0),
                                           encoded_goals,
                                           tokenized_premises,
                                           FloatTensor([premise_features]))
-        assert hyp_arg_values.size() == torch.Size([1, stem_width, num_hyps])
+        assert hyp_arg_values.size() == torch.Size([1, stem_width, num_hyps]), (hyp_arg_values.size(), stem_width, num_hyps)
         return hyp_arg_values
 
     def predict_args(self,
