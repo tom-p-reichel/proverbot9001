@@ -163,16 +163,15 @@ class GoalTokenArgModel(nn.Module):
 class HypArgEncoder(nn.Module):
     def __init__(self,
                  stem_vocab_size: int,
-                 token_vocab_size: int,
+                 chunk_size: int,
                  hyp_features_size: int,
                  goal_data_size: int,
                  hidden_size: int) -> None:
         super().__init__()
         self.hidden_size = hidden_size
+        self.chunk_size = chunk_size
         self._stem_embedding = maybe_cuda(
             nn.Embedding(stem_vocab_size, hidden_size))
-        self._token_embedding = maybe_cuda(
-            nn.Embedding(token_vocab_size, hidden_size))
         self._in_hidden = maybe_cuda(EncoderDNN(
             hidden_size + goal_data_size, hidden_size, hidden_size, 1))
         self._hyp_gru = maybe_cuda(nn.GRU(hidden_size, hidden_size))
@@ -180,7 +179,7 @@ class HypArgEncoder(nn.Module):
     def forward(self,
                 stems_batch: torch.LongTensor,
                 goals_encoded_batch: torch.FloatTensor,
-                hyps_batch: torch.LongTensor) -> torch.FloatTensor:
+                hyps_batch: torch.FloatTensor) -> torch.FloatTensor:
         stems_var = maybe_cuda(Variable(stems_batch))
         hyps_var = maybe_cuda(Variable(hyps_batch))
         batch_size = stems_batch.size()[0]
@@ -205,12 +204,12 @@ class HypArgEncoder(nn.Module):
 class HypArgModel(nn.Module):
     def __init__(self, goal_data_size: int,
                  stem_vocab_size: int,
-                 token_vocab_size: int,
+                 chunk_size: int,
                  hyp_features_size: int,
                  hidden_size: int) -> None:
         super().__init__()
         self.arg_encoder = HypArgEncoder(stem_vocab_size,
-                                         token_vocab_size,
+                                         chunk_size,
                                          hyp_features_size,
                                          goal_data_size,
                                          hidden_size)
@@ -389,7 +388,7 @@ class FeaturesPolyargPredictor(
         self.metadata, num_stem_poss = get_num_indices(self.metadata)
         stem_width = min(16, num_stem_poss)
 
-        (tokenized_premises, premise_subwords), hyp_features, \
+        (premise_keywords, premise_subwords), hyp_features, \
             nhyps_batch, (goal_keywords, goal_subwords), \
             goal_mask, \
             word_features, vec_features = \
@@ -400,18 +399,33 @@ class FeaturesPolyargPredictor(
                        context.hypotheses,
                        context.goal)
 
+        num_hyps = nhyps_batch[0]
+        term_length = self.training_args.max_length
+        subword_length = self.training_args.max_subwords
+        chunk_size = self._model.ident_chunk_encoder.out_size()
+
         stem_certainties, stem_idxs = self.predict_stems(
             stem_width, word_features, vec_features)
 
-        tokenized_goal = self.encode_goal_chunks(self.training_args, self._model,
-                                                 LongTensor(goal_keywords), LongTensor(goal_subwords))
+        tokenized_premises = self.encode_term_chunks(self.training_args, self._model,
+                                                    LongTensor(premise_keywords).view(
+                                                        num_hyps, term_length),
+                                                    LongTensor(premise_subwords).view(
+                                                        num_hyps, term_length,
+                                                        subword_length)).view(
+                                                            1, num_hyps,
+                                                            term_length, chunk_size)
+
+        tokenized_goal = self.encode_term_chunks(self.training_args, self._model,
+                                                 LongTensor(goal_keywords),
+                                                 LongTensor(goal_subwords))
         goal_arg_values = self.goal_token_scores(
             stem_idxs, tokenized_goal, goal_mask)
 
         if len(tokenized_premises[0]) > 0:
             hyp_arg_values = self.hyp_name_scores(
                 stem_idxs[0], tokenized_goal,
-                tokenized_premises[0], hyp_features[0])
+                tokenized_premises, hyp_features[0])
 
             total_scores = torch.cat((goal_arg_values, hyp_arg_values), dim=2)
         else:
@@ -653,7 +667,7 @@ class FeaturesPolyargPredictor(
     def hyp_name_scores(self,
                         stem_idxs: torch.LongTensor,
                         tokenized_goal: torch.FloatTensor,
-                        tokenized_premises: List[List[int]],
+                        tokenized_premises: torch.FloatTensor,
                         premise_features: List[List[float]]
                         ) -> torch.FloatTensor:
         assert self._model
@@ -663,7 +677,7 @@ class FeaturesPolyargPredictor(
         encoded_goals = self._model.goal_encoder(tokenized_goal)
         hyp_arg_values = self.runHypModel(stem_idxs.unsqueeze(0),
                                           encoded_goals,
-                                          LongTensor([tokenized_premises]),
+                                          tokenized_premises,
                                           FloatTensor([premise_features]))
         assert hyp_arg_values.size() == torch.Size([1, stem_width, num_hyps])
         return hyp_arg_values
@@ -709,7 +723,7 @@ class FeaturesPolyargPredictor(
         return self.predictKTactics_batch(in_datas, k), 0
 
     def runHypModel(self, stem_idxs: torch.LongTensor, encoded_goals: torch.FloatTensor,
-                    hyps_batch: torch.LongTensor, hypfeatures_batch: torch.FloatTensor):
+                    hyps_batch: torch.FloatTensor, hypfeatures_batch: torch.FloatTensor):
         assert self._model
         assert self.training_args
         batch_size = encoded_goals.size()[0]
@@ -719,6 +733,7 @@ class FeaturesPolyargPredictor(
         if hypfeatures_batch.size()[1] == 0:
             return maybe_cuda(torch.zeros(batch_size, beam_width, 0))
         features_size = hypfeatures_batch.size()[2]
+        chunk_size = self._model.ident_chunk_encoder.out_size()
         hyp_arg_values = \
             self._model.hyp_model(stem_idxs.view(batch_size, beam_width, 1)
                                   .expand(-1, -1, num_hyps).contiguous()
@@ -730,10 +745,11 @@ class FeaturesPolyargPredictor(
                                   .view(batch_size * beam_width * num_hyps,
                                         self.training_args.hidden_size),
                                   hyps_batch.view(batch_size, 1, num_hyps,
-                                                  self.training_args.max_length)
-                                  .expand(-1, beam_width, -1, -1).contiguous()
+                                                  self.training_args.max_length,
+                                                  chunk_size)
+                                  .expand(-1, beam_width, -1, -1, -1).contiguous()
                                   .view(batch_size * beam_width * num_hyps,
-                                        self.training_args.max_length),
+                                        self.training_args.max_length, chunk_size),
                                   hypfeatures_batch
                                   .view(batch_size, 1, num_hyps, features_size)
                                   .expand(-1, beam_width, -1, -1).contiguous()
@@ -929,13 +945,14 @@ class FeaturesPolyargPredictor(
                               arg_values.hidden_size),
             EncoderRNNFloat(ident_chunk_encoder.out_size(), arg_values.hidden_size,
                             arg_values.hidden_size),
-            HypArgModel(arg_values.hidden_size, stem_vocab_size, num_keywords,
+            HypArgModel(arg_values.hidden_size, stem_vocab_size,
+                        ident_chunk_encoder.out_size(),
                         hypFeaturesSize(), arg_values.hidden_size))
 
     def _getBatchPredictionLoss(self, arg_values: Namespace,
                                 batch: Sequence[torch.Tensor],
                                 model: FeaturesPolyArgModel) -> torch.FloatTensor:
-        tokenized_hyp_types_batch, hyp_subwords, \
+        hyp_keywords, hyp_subwords, \
             hyp_features_batch, num_hyps_batch, \
             goal_keywords, goal_subwords, goal_masks_batch, \
             word_features_batch, vec_features_batch, \
@@ -946,10 +963,10 @@ class FeaturesPolyargPredictor(
                        torch.LongTensor, torch.FloatTensor,
                        torch.LongTensor, torch.LongTensor],
                  batch)
-        tokenized_goals_batch = self.encode_goal_chunks(arg_values, model,
+        tokenized_goals_batch = self.encode_term_chunks(arg_values, model,
                                                         goal_keywords, goal_subwords)
         chunk_size = model.ident_chunk_encoder.out_size()
-        batch_size = tokenized_goals_batch.size()[0]
+        batch_size, num_hyps, term_length, subword_length = hyp_subwords.size()
         goal_size = tokenized_goals_batch.size()[1]
         stemDistributions = model.stem_classifier(
             word_features_batch, vec_features_batch)
@@ -969,12 +986,14 @@ class FeaturesPolyargPredictor(
         correctPredictionIdxs = torch.LongTensor([list(idxList).index(stem_idx) for
                                                   idxList, stem_idx
                                                   in zip(mergedStemIdxs, stem_var)])
-        if arg_values.hyp_rnn:
-            tokenized_hyps_var = maybe_cuda(
-                Variable(tokenized_hyp_types_batch))
-        else:
-            tokenized_hyps_var = maybe_cuda(
-                Variable(torch.zeros_like(tokenized_hyp_types_batch)))
+        tokenized_hyps_var = self.encode_term_chunks(
+            arg_values, model,
+            hyp_keywords.view(batch_size * num_hyps, term_length),
+            hyp_subwords.view(batch_size * num_hyps, term_length,
+                              subword_length)).view(
+                batch_size, num_hyps, term_length, chunk_size)
+        if not arg_values.hyp_rnn:
+            tokenized_hyps_var = maybe_cuda(torch.zeros_like(tokenized_hyps_var))
 
         if arg_values.hyp_features:
             hyp_features_var = maybe_cuda(Variable(hyp_features_batch))
@@ -996,8 +1015,8 @@ class FeaturesPolyargPredictor(
             maybe_cuda(torch.full_like(goal_arg_values, -float("Inf"))))
         encoded_goals = model.goal_encoder(tokenized_goals_batch)
 
-        hyp_lists_length = tokenized_hyp_types_batch.size()[1]
-        hyp_length = tokenized_hyp_types_batch.size()[2]
+        hyp_lists_length = hyp_keywords.size()[1]
+        hyp_length = hyp_keywords.size()[2]
         hyp_features_size = hyp_features_batch.size()[2]
         encoded_goal_size = encoded_goals.size()[1]
 
@@ -1015,10 +1034,10 @@ class FeaturesPolyargPredictor(
             model.hyp_model(stems_expanded,
                             encoded_goals_expanded,
                             tokenized_hyps_var
-                            .view(batch_size, 1, hyp_lists_length, hyp_length)
-                            .expand(-1, stem_width, -1, -1).contiguous()
+                            .view(batch_size, 1, hyp_lists_length, hyp_length, chunk_size)
+                            .expand(-1, stem_width, -1, -1, -1).contiguous()
                             .view(batch_size * stem_width * hyp_lists_length,
-                                  hyp_length),
+                                  hyp_length, chunk_size),
                             hyp_features_var
                             .view(batch_size, 1, hyp_lists_length, hyp_features_size)
                             .expand(-1, stem_width, -1, -1).contiguous()
@@ -1042,18 +1061,18 @@ class FeaturesPolyargPredictor(
         loss += self._criterion(total_arg_distribution, total_arg_var)
         return loss
 
-    def encode_goal_chunks(self, args: argparse.Namespace,
+    def encode_term_chunks(self, args: argparse.Namespace,
                            model: FeaturesPolyArgModel,
-                           goal_keywords: torch.LongTensor,
-                           goal_subwords: torch.LongTensor) ->\
+                           keywords: torch.LongTensor,
+                           subwords: torch.LongTensor) ->\
                           torch.FloatTensor:
-        batch_size = goal_keywords.size()[0]
-        assert batch_size == goal_subwords.size()[0]
+        batch_size = keywords.size()[0]
+        assert batch_size == subwords.size()[0]
         return unwrap(model).ident_chunk_encoder(
-            goal_keywords.view(
+            keywords.view(
                 batch_size,
                 args.max_length),
-            goal_subwords.view(
+            subwords.view(
                 batch_size,
                 args.max_length,
                 args.max_subwords)).view(
