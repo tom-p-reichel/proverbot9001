@@ -110,35 +110,45 @@ FeaturesPolyargState = Tuple[Any, NeuralPredictorState]
 
 class GoalTokenEncoderModel(nn.Module):
     def __init__(self, stem_vocab_size: int,
-                 chunk_size: int,
+                 input_vocab_size: int,
                  hidden_size: int) -> None:
         super().__init__()
         self.hidden_size = hidden_size
         self._stem_embedding = maybe_cuda(
             nn.Embedding(stem_vocab_size, hidden_size))
-        self._chunk_size= chunk_size
-        self._gru = maybe_cuda(nn.GRU(chunk_size, hidden_size, batch_first=True))
+        self._token_size = input_vocab_size
+        self._gru = maybe_cuda(nn.GRU(input_vocab_size, hidden_size))
 
     def forward(self, stem_batch: torch.LongTensor, goal_batch: torch.LongTensor) \
             -> torch.FloatTensor:
-        batch_size = goal_batch.size()[0]
-        goal_var = torch.cat((goal_batch, maybe_cuda(torch.zeros(batch_size, 1, self._chunk_size))), dim=1)
+        goal_var = maybe_cuda(Variable(goal_batch))
         stem_var = maybe_cuda(Variable(stem_batch))
+        batch_size = goal_batch.size()[0]
         assert stem_batch.size()[0] == batch_size
         initial_hidden = self._stem_embedding(stem_var)\
                              .view(1, batch_size, self.hidden_size)
-        encoded_tokens, final_hidden = self._gru(goal_var, initial_hidden)
-        return encoded_tokens
+        hidden = initial_hidden
+        encoded_tokens: List[torch.FloatTensor] = []
+        for i in range(goal_batch.size()[1]):
+            token_batch = goal_var[:,i].view(1, batch_size, self._token_size)
+            token_batch2 = F.relu(token_batch)
+            token_out, hidden = self._gru(token_batch2, hidden)
+            encoded_tokens.append(token_out.squeeze(dim=0).unsqueeze(1))
+        end_token_embedded = maybe_cuda(torch.zeros(1, batch_size, self._token_size))
+        final_out, _final_hidden = self._gru(F.relu(end_token_embedded), hidden)
+        encoded_tokens.insert(0, final_out.squeeze(dim=0).unsqueeze(1))
+        catted = torch.cat(encoded_tokens, dim=1)
+        return catted
 
 
 class GoalTokenArgModel(nn.Module):
     def __init__(self, stem_vocab_size: int,
-                 chunk_size: int,
+                 input_vocab_size: int,
                  hidden_size: int) -> None:
         super().__init__()
         self.encoder_model = GoalTokenEncoderModel(
             stem_vocab_size,
-            chunk_size,
+            input_vocab_size,
             hidden_size)
         self._likelyhood_layer = maybe_cuda(
             EncoderDNN(hidden_size, hidden_size, 1, 2))
@@ -164,7 +174,7 @@ class HypArgEncoder(nn.Module):
             nn.Embedding(stem_vocab_size, hidden_size))
         self._in_hidden = maybe_cuda(EncoderDNN(
             hidden_size + goal_data_size, hidden_size, hidden_size, 1))
-        self._hyp_gru = maybe_cuda(nn.GRU(chunk_size, hidden_size, batch_first=True))
+        self._hyp_gru = maybe_cuda(nn.GRU(chunk_size, hidden_size))
 
     def forward(self,
                 stems_batch: torch.LongTensor,
@@ -183,8 +193,13 @@ class HypArgEncoder(nn.Module):
             (stem_encoded, goals_encoded_batch), dim=1))\
             .view(1, batch_size, self.hidden_size)
         hidden = initial_hidden
-        tokens_out, hidden_out = self._hyp_gru(hyps_var, hidden)
-        return tokens_out[:,-1]
+        for i in range(hyps_batch.size()[1]):
+            token_batch = hyps_var[:, i]\
+                .view(1, batch_size, self.chunk_size)
+            token_batch = F.relu(token_batch)
+            token_out, hidden = self._hyp_gru(token_batch, hidden)
+
+        return token_out.squeeze()
 
 class HypArgModel(nn.Module):
     def __init__(self, goal_data_size: int,
@@ -309,8 +324,12 @@ class FeaturesPolyargPredictor(
         self.training_args: Optional[argparse.Namespace] = None
         self.training_loss: Optional[float] = None
         self.num_epochs: Optional[int] = None
+        # self._word_feature_functions: Optional[List[WordFeature]] = None
+        # self._vec_feature_functions: Optional[List[VecFeature]] = None
         self._softmax = maybe_cuda(nn.LogSoftmax(dim=1))
         self._softmax2 = maybe_cuda(nn.LogSoftmax(dim=2))
+        # self._tokenizer : Optional[Tokenizer] = None
+        # self._embedding : Optional[Embedding] = None
         self._model: Optional[FeaturesPolyArgModel] = None
 
     @property
@@ -354,6 +373,11 @@ class FeaturesPolyargPredictor(
 
         predictions = list(generate())
 
+        # for context, pred_list in zip(contexts, predictions):
+        #     for batch_pred, single_pred in zip(
+        #             pred_list, self.predictKTactics(context, k)):
+        #         assert batch_pred.prediction == single_pred.prediction, \
+        #             (batch_pred, single_pred)
         return predictions
 
     def getAllPredictionIdxs(self, context: TacticContext
